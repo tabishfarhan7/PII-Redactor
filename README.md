@@ -20,28 +20,34 @@ The application is a single-page React app that delegates the heavy lifting of N
 ## 📊 Evaluation Criteria & Approach
 
 ### 1. Recall vs. Precision
-When dealing with sensitive information, the balance between **Recall** (catching every instance) and **Precision** (avoiding false positives) is critical.
+When dealing with sensitive information, the balance between **Recall** (catching every instance) and **Precision** (avoiding false positives) is critical. We use LLM prompting to explicitly manage this balance:
 
-*   **High Recall (Priority):** The primary goal of a PII redactor is to ensure absolutely no sensitive data leaks. Traditional Regex scripts have terrible recall for unstructured text (like a person's name). By using Llama 3.3, this tool achieves exceptionally high recall, identifying context-dependent entities that pattern-matching would miss entirely.
-*   **Precision (Trade-off):** Because the tool is instructed to be aggressive in catching potential PII, there is a minor trade-off in precision. It may occasionally flag fictional names, order numbers, or industry-specific jargon as PII (False Positives). **Choice rationale:** In data security, a false positive is highly preferable to a false negative. It is better to accidentally redact a benign serial number than to accidentally leak a real Credit Card number.
+*   **High Recall (Priority):** The LLM is explicitly instructed to perform a thorough pass and flag anything that structurally matches the requested PII categories. Because Llama 3.3 understands sentence context, it easily achieves near-perfect recall on unstructured entities like fictional names or unformatted addresses that Regex would miss.
+*   **High Precision (Ignoring System Identifiers):** To avoid redacting benign data and inflating false positives, the system prompt explicitly defines what *not* to redact. The LLM is instructed: **"DO NOT redact Order Numbers, Ticket Numbers, Invoice IDs, receipt IDs, or product SKUs (e.g. #ORD-99812, TICK-45091)."** We made the explicit choice to treat these as non-sensitive to maintain the readability and utility of the document.
 
 ### 2. Code Quality & Extensibility
-The codebase is designed to be highly readable, modular, and—most importantly—effortlessly extensible. 
+The codebase is designed to be highly readable, modular, and effortlessly extensible. The AI prompt isn't a hardcoded monolithic string; it is built dynamically at runtime based on the `PII_TYPES` configuration array.
 
 **How to extend it to a new PII type:**
-You do not need to write complex Regex patterns to add a new category. The application is entirely data-driven. To add a new PII type (e.g., "Passport Numbers"), you simply add one line to the `PII_TYPES` array at the top of `App.jsx`:
+You do not need to write complex Regex patterns or modify the core AI fetching logic. To add a new category (e.g., "Passport Numbers"), you simply add one object to the `PII_TYPES` array in `App.jsx`:
 
 \`\`\`javascript
 const PII_TYPES = [
   // ... existing types
-  { id: "passport", label: "Passport Numbers", icon: <svg>...</svg> }
+  { 
+    id: "passport", 
+    label: "Passport Numbers", 
+    icon: <svg>...</svg>,
+    color: "from-blue-500 to-indigo-600",
+    rule: "Passport → replace with fake 9-digit alphanumeric passport number"
+  }
 ];
 \`\`\`
 
-The UI will automatically generate a new toggle button for it in the sidebar, and the dynamic `run()` function will automatically append "Passport Numbers" to the LLM instructions.
+The UI will automatically generate a new toggle button for it in the sidebar, style it with the provided gradient, and the engine will seamlessly append the new `rule` to the LLM instructions.
 
 ### 3. Communication
-This README serves to clearly communicate the technical decisions, architecture, and deployment steps required to utilize the SafeRedact application.
+This README serves to clearly communicate the technical decisions, architecture, and deployment steps required to utilize the SafeRedact application. The code itself is clean, component-based, and relies on React standard hooks.
 
 ---
 
